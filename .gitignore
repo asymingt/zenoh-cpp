@@ -43,3 +43,7 @@ docs/latex
 
 zenohcpp.pc
 .cache
+
+# Bazel
+bazel-*
+*.bazel.lock
