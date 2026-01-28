@@ -1,0 +1,80 @@
+# Copyright 2025 Open Source Robotics Foundation, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "zenoh-cpp",
+    hdrs = glob(["include/**"]),
+    includes = ["include"],
+    defines = ["ZENOHCXX_ZENOHPICO"],
+    deps = ["@zenoh-pico"],
+)
+
+# Tests that may be parallelized.
+
+TEST_NAME_TO_SRC = {
+    "tests_build_warnings" : "tests/build/warnings.cxx",
+    "tests_universal_bytes" : "tests/universal/bytes.cxx",
+    "tests_universal_closures" : "tests/universal/closures.cxx",
+    "tests_universal_details" : "tests/universal/details.cxx",
+    "tests_universal_network_advanced_pub_sub" : "tests/universal/network/advanced_pub_sub.cxx",
+    "tests_universal_network_cancellation" : "tests/universal/network/cancellation.cxx",
+    "tests_universal_network_keyexpr" : "tests/universal/network/keyexpr.cxx",
+    "tests_universal_network_liveliness" : "tests/universal/network/liveliness.cxx",
+    "tests_universal_network_pub_sub" : "tests/universal/network/pub_sub.cxx",
+    "tests_universal_network_queryable_get" : "tests/universal/network/queryable_get.cxx",
+    "tests_universal_network_source_info" : "tests/universal/network/source_info.cxx",
+    "tests_universal_serialization" : "tests/universal/serialization.cxx",
+    "tests_zenohpico_network_batching" : "tests/zenohpico/network/batching.cxx",
+    "tests_zenohpico_config" : "tests/zenohpico/config.cxx",
+    "tests_zenohpico_network_tasks" : "tests/zenohpico/network/tasks.cxx",
+}
+
+[
+    cc_binary(
+        name = "{}_bin".format(name),
+        srcs = [src],
+        cxxopts = [
+            "-Wno-parentheses",
+            "-Wno-sign-compare",
+            "-Wno-unused-variable",
+        ],
+        deps = [":zenoh-cpp"],
+    )
+    for name, src in TEST_NAME_TO_SRC.items()
+]
+
+[
+    sh_test(
+        name = name,
+        srcs = ["tests/run_with_router.sh"],
+        data = [
+            ":{}_bin".format(name),
+            "@zenoh//zenohd",
+        ],
+        args = [
+            "$(location :{}_bin)".format(name),
+            "$(location @zenoh//zenohd)",
+        ],
+        tags = [
+            "exclusive",
+            "requires-network"
+        ]
+    )
+    for name in TEST_NAME_TO_SRC.keys()
+]
